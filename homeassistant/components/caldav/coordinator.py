@@ -10,6 +10,7 @@ from caldav.collection import Calendar
 
 from homeassistant.components.calendar import (
     CalendarEvent,
+    CalendarEventClassification,
     CalendarEventStatus,
     extract_offset,
 )
@@ -41,6 +42,23 @@ def _get_status(vevent: CalendarObjectResource) -> CalendarEventStatus | None:
         return CalendarEventStatus(value.lower())
     except ValueError:
         _LOGGER.debug("Ignoring unsupported event status %s", value)
+        return None
+
+
+def _get_classification(
+    vevent: CalendarObjectResource,
+) -> CalendarEventClassification | None:
+    """Return the rfc5545 CLASS of a VEVENT, if it is a known classification.
+
+    Anything outside the rfc5545 set is dropped: the iana-tokens and x-names
+    that rfc5545 also permits here are not something a consumer can interpret.
+    """
+    if (value := get_attr_value(vevent, "class")) is None:
+        return None
+    try:
+        return CalendarEventClassification(value.lower())
+    except ValueError:
+        _LOGGER.debug("Ignoring unsupported event classification %s", value)
         return None
 
 
@@ -126,6 +144,7 @@ class CalDavUpdateCoordinator(DataUpdateCoordinator[CalendarEvent | None]):
                         else None
                     ),
                     status=_get_status(vevent),
+                    classification=_get_classification(vevent),
                 )
             )
 
@@ -239,6 +258,7 @@ class CalDavUpdateCoordinator(DataUpdateCoordinator[CalendarEvent | None]):
                 else None
             ),
             status=_get_status(vevent),
+            classification=_get_classification(vevent),
         )
         return next_event, offset
 

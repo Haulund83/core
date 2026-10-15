@@ -15,6 +15,7 @@ from gcal_sync.model import (
     Event,
     EventTypeEnum,
     ResponseStatus,
+    VisibilityEnum,
 )
 from gcal_sync.store import ScopedCalendarStore
 from gcal_sync.sync import CalendarEventSyncManager
@@ -31,6 +32,7 @@ from homeassistant.components.calendar import (
     CalendarEntityDescription,
     CalendarEntityFeature,
     CalendarEvent,
+    CalendarEventClassification,
     CalendarEventStatus,
     extract_offset,
     is_offset_reached,
@@ -518,4 +520,13 @@ def _get_calendar_event(event: Event) -> CalendarEvent:
         # events when building the timeline, so only the statuses a calendar
         # entity reports reach here, already in lower case.
         status=CalendarEventStatus(event.status.value),
+        # Default defers to the visibility configured on the calendar, which
+        # the API does not resolve per event, so it is reported as unset.
+        # gcal_sync folds the legacy confidential into private, so only public
+        # and private reach here, already in lower case.
+        classification=(
+            CalendarEventClassification(event.visibility.value)
+            if event.visibility != VisibilityEnum.DEFAULT
+            else None
+        ),
     )

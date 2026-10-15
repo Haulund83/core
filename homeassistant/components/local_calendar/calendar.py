@@ -21,6 +21,7 @@ from homeassistant.components.calendar import (
     CalendarEntity,
     CalendarEntityFeature,
     CalendarEvent,
+    CalendarEventClassification,
     CalendarEventStatus,
 )
 from homeassistant.core import HomeAssistant
@@ -262,6 +263,22 @@ def _get_status(event: Event) -> CalendarEventStatus | None:
         return None
 
 
+def _get_classification(event: Event) -> CalendarEventClassification | None:
+    """Return the access classification of an event, if it is a known one.
+
+    ical accepts any CLASS value and keeps an iana-token or x-name as is, so
+    anything outside the rfc5545 set maps to no classification. Its enum is a
+    plain (str, Enum) rather than a StrEnum, so its value has to be read
+    explicitly.
+    """
+    if event.classification is None:
+        return None
+    try:
+        return CalendarEventClassification(event.classification.value.lower())
+    except ValueError:
+        return None
+
+
 def _get_calendar_event(event: Event) -> CalendarEvent:
     """Return a CalendarEvent from an API event."""
     start: datetime | date
@@ -287,4 +304,5 @@ def _get_calendar_event(event: Event) -> CalendarEvent:
         recurrence_id=event.recurrence_id,
         location=event.location,
         status=_get_status(event),
+        classification=_get_classification(event),
     )

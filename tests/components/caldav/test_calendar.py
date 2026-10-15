@@ -1119,6 +1119,7 @@ async def test_get_events_custom_calendars(
             "recurrence_id": None,
             "rrule": None,
             "status": None,
+            "classification": None,
         }
     ]
 
@@ -1190,6 +1191,50 @@ async def test_get_events_with_status(
 
     assert len(events) == 1
     assert events[0]["status"] == expected_status
+
+
+ICS_WITH_CLASSIFICATION = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//E-Corp.//CalDAV Client//EN
+BEGIN:VEVENT
+UID:classification-event-uid
+DTSTAMP:20171125T000000Z
+DTSTART:20171127T170000Z
+DTEND:20171127T180000Z
+SUMMARY:This is an event with a classification
+LOCATION:Hamburg
+DESCRIPTION:Surprisingly rainy
+CLASS:{classification}
+END:VEVENT
+END:VCALENDAR"""
+
+
+@pytest.mark.parametrize(
+    ("classification", "expected_classification"),
+    [
+        pytest.param("PUBLIC", "public", id="public"),
+        pytest.param("PRIVATE", "private", id="private"),
+        pytest.param("CONFIDENTIAL", "confidential", id="confidential"),
+        pytest.param("Private", "private", id="mixed_case"),
+        pytest.param("X-VENDOR-SPECIFIC", None, id="unsupported_value"),
+    ],
+)
+async def test_get_events_with_classification(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    classification: str,
+    expected_classification: str | None,
+) -> None:
+    """Test that the rfc5545 CLASS property is populated from VEVENT data."""
+    events = await _get_api_events_for_vevent(
+        hass,
+        hass_client,
+        ICS_WITH_CLASSIFICATION.format(classification=classification),
+        "classification-event-uid",
+    )
+
+    assert len(events) == 1
+    assert events[0]["classification"] == expected_classification
 
 
 def _mock_calendar_holding(name: str, vevents: list[str]) -> Mock:

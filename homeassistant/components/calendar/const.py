@@ -52,6 +52,23 @@ class CalendarEventStatus(StrEnum):
     TENTATIVE = "tentative"
 
 
+class CalendarEventClassification(StrEnum):
+    """Access classification of a calendar event.
+
+    The classifications defined by the rfc5545 CLASS property. The iana-tokens
+    and x-names that rfc5545 also permits there are not represented here.
+
+    An event without a classification is not the same as a public event, even
+    though rfc5545 makes public the default: it means the calendar did not
+    report one, either because the source does not support it or because the
+    integration does not read it yet.
+    """
+
+    PUBLIC = "public"
+    PRIVATE = "private"
+    CONFIDENTIAL = "confidential"
+
+
 # rfc5545 fields
 EVENT_UID = "uid"
 EVENT_START = "dtstart"
@@ -63,6 +80,7 @@ EVENT_RECURRENCE_ID = "recurrence_id"
 EVENT_RECURRENCE_RANGE = "recurrence_range"
 EVENT_RRULE = "rrule"
 EVENT_STATUS = "status"
+EVENT_CLASSIFICATION = "classification"
 
 # Service call fields
 EVENT_START_DATE = "start_date"
@@ -90,4 +108,5 @@ LIST_EVENT_FIELDS = {
     EVENT_DESCRIPTION,
     EVENT_LOCATION,
     EVENT_STATUS,
+    EVENT_CLASSIFICATION,
 }

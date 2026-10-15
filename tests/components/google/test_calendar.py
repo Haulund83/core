@@ -1557,6 +1557,7 @@ async def test_working_location_get_events(
                     "description": "test event",
                     "location": "Test Cases",
                     "status": "confirmed",
+                    "classification": "public",
                 },
                 {
                     "start": "2026-08-25",
@@ -1565,6 +1566,7 @@ async def test_working_location_get_events(
                     "description": "test event",
                     "location": "Test Cases",
                     "status": "confirmed",
+                    "classification": "public",
                 },
                 {
                     "start": "2026-08-31",
@@ -1573,6 +1575,7 @@ async def test_working_location_get_events(
                     "description": "test event",
                     "location": "Test Cases",
                     "status": "confirmed",
+                    "classification": "public",
                 },
             ]
         }
@@ -1656,6 +1659,7 @@ async def test_working_location_ignore_availability_false(
                     "description": "test event",
                     "location": "Test Cases",
                     "status": "confirmed",
+                    "classification": "public",
                 }
             ]
         }
@@ -1816,3 +1820,94 @@ async def test_http_api_event_status(
     events = await response.json()
     assert len(events) == 1
     assert events[0]["status"] == expected_status
+
+
+@pytest.mark.freeze_time("2022-03-27 12:05:00+00:00")
+@pytest.mark.parametrize(
+    ("event_visibility", "expected_classification"),
+    [
+        pytest.param({"visibility": "public"}, "public", id="public"),
+        pytest.param({"visibility": "private"}, "private", id="private"),
+        # gcal_sync folds the legacy confidential into private.
+        pytest.param({"visibility": "confidential"}, "private", id="confidential"),
+        # Default defers to the calendar's own setting, which the API does not
+        # resolve per event, so it is reported as unset.
+        pytest.param({"visibility": "default"}, None, id="default"),
+        pytest.param({}, None, id="omitted"),
+    ],
+)
+async def test_http_api_event_classification(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    mock_events_list_items: ApiResult,
+    component_setup: ComponentSetup,
+    event_visibility: dict[str, str],
+    expected_classification: str | None,
+) -> None:
+    """Test that the event visibility is returned by the API as classification."""
+    mock_events_list_items([{**TEST_EVENT, **upcoming(), **event_visibility}])
+    assert await component_setup()
+
+    client = await hass_client()
+    response = await client.get(upcoming_event_url())
+    assert response.status == HTTPStatus.OK
+    events = await response.json()
+    assert len(events) == 1
+    assert events[0]["classification"] == expected_classification
+
+
+@pytest.mark.parametrize(
+    ("event_visibility", "expected_classification"),
+    [
+        pytest.param(
+            {"visibility": "private"}, {"classification": "private"}, id="set"
+        ),
+        pytest.param({"visibility": "default"}, {}, id="unset"),
+    ],
+)
+async def test_get_events_event_classification(
+    hass: HomeAssistant,
+    mock_events_list_items: ApiResult,
+    component_setup: ComponentSetup,
+    event_visibility: dict[str, str],
+    expected_classification: dict[str, str],
+) -> None:
+    """Test that get_events includes the classification only when it is set."""
+    mock_events_list_items(
+        [
+            {
+                **TEST_EVENT,
+                "start": {"date": "2022-03-27"},
+                "end": {"date": "2022-03-28"},
+                **event_visibility,
+            }
+        ]
+    )
+    assert await component_setup()
+
+    response = await hass.services.async_call(
+        "calendar",
+        "get_events",
+        {
+            "start_date_time": "2022-03-27T00:00:00Z",
+            "end_date_time": "2022-03-28T00:00:00Z",
+        },
+        target={"entity_id": TEST_ENTITY},
+        blocking=True,
+        return_response=True,
+    )
+    assert response == {
+        TEST_ENTITY: {
+            "events": [
+                {
+                    "start": "2022-03-27",
+                    "end": "2022-03-28",
+                    "summary": "Test All Day Event",
+                    "description": "test event",
+                    "location": "Test Cases",
+                    "status": "confirmed",
+                    **expected_classification,
+                }
+            ]
+        }
+    }

@@ -63,6 +63,7 @@ from .const import (  # noqa: F401
     SERVICE_GET_EVENTS,
     CalendarEntityFeature,
     CalendarEntityStateAttribute,
+    CalendarEventClassification,
     CalendarEventStatus,
 )
 from .helper import (
@@ -189,6 +190,7 @@ class CalendarEvent:
     recurrence_id: str | None = None
     rrule: str | None = None
     status: CalendarEventStatus | None = None
+    classification: CalendarEventClassification | None = None
 
     @property
     def start_datetime_local(self) -> datetime.datetime:

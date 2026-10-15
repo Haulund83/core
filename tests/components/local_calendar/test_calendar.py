@@ -1304,6 +1304,58 @@ async def test_cancelled_event_is_not_returned(get_events: GetEventsFn) -> None:
     assert events == []
 
 
+ICS_WITH_CLASSIFICATION = """BEGIN:VCALENDAR
+BEGIN:VEVENT
+SUMMARY:Bastille Day Party
+DTSTART:19970714
+DTEND:19970715
+CLASS:{classification}
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+@pytest.mark.parametrize(
+    ("ics_content", "expected_classification"),
+    [
+        pytest.param(
+            ICS_WITH_CLASSIFICATION.format(classification="PUBLIC"),
+            "public",
+            id="public",
+        ),
+        pytest.param(
+            ICS_WITH_CLASSIFICATION.format(classification="PRIVATE"),
+            "private",
+            id="private",
+        ),
+        pytest.param(
+            ICS_WITH_CLASSIFICATION.format(classification="CONFIDENTIAL"),
+            "confidential",
+            id="confidential",
+        ),
+        pytest.param(
+            ICS_WITH_CLASSIFICATION.format(classification="X-VENDOR-SPECIFIC"),
+            None,
+            id="unsupported_value",
+        ),
+        pytest.param(
+            ICS_WITH_STATUS.format(status="CONFIRMED"),
+            None,
+            id="no_classification",
+        ),
+    ],
+)
+@pytest.mark.usefixtures("setup_integration")
+async def test_event_classification(
+    get_events: GetEventsFn,
+    expected_classification: str | None,
+) -> None:
+    """Test that the rfc5545 CLASS property is returned by the API."""
+    events = await get_events("1997-07-13T00:00:00", "1997-07-16T00:00:00")
+    assert len(events) == 1
+    assert events[0]["classification"] == expected_classification
+
+
 ONGOING_CANCELLED_ICS = """BEGIN:VCALENDAR
 PRODID:-//homeassistant.io//local_calendar 1.0//EN
 VERSION:2.0
